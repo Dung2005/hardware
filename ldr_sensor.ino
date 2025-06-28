@@ -52,7 +52,7 @@ void reconnect() {
       Serial.println("connected");
       mqttConnected = true;
       client.subscribe("v1/devices/me/attributes");
-      client.subscribe("v1/devices/me/telemetry");
+      //client.subscribe("v1/devices/me/telemetry");
       client.subscribe("v1/devices/me/rpc/request/+");  // Subscribe topic RPC
     } else {
       Serial.print("failed, rc=");
@@ -107,12 +107,13 @@ void changeLedState(int ledPin, bool state) {
     digitalWrite(LED_PIN_17, state ? HIGH : LOW);
   }
   String payload = "{\"led\":" + String(ledPin) + ", \"state\":" + String(state) + "}";
+  //client.publish("V1/devices/me/telemetry" + payload.c_str());
   Serial.print("Publishing state: ");
   Serial.println(payload);
 }
 
 void sendLightSensorData() {
-  Serial.println("Reading light sensor...");
+  Serial.println("\nReading light sensor...");
   float lightValue = analogRead(34);
   Serial.print("Light value = ");
   Serial.println(lightValue);
@@ -125,7 +126,6 @@ void sendLightSensorData() {
 
 
   String payload = "{\"light_intensity\":" + String(lightValue) + "}";
-  client.publish("v1/devices/me/telemetry", payload.c_str());
   if (lightValue < 1000) {
     Serial.println("Tối -> Bật đèn");
     changeLedState(17, true);  // bật LED 17 nếu ánh sáng yếu
@@ -133,6 +133,7 @@ void sendLightSensorData() {
     Serial.println("Sáng -> Tắt đèn");
     changeLedState(17, false);  // tắt LED 17 nếu ánh sáng mạnh
   }
+  client.publish("v1/devices/me/telemetry", payload.c_str());
 }
 
 void loop() {
