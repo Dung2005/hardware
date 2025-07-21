@@ -152,7 +152,7 @@ void setup() {
         client.loop();  // Lắng nghe phản hồi từ server
         delay(100);
       }
-      delay(1000);  //delay sau notify
+
       // Sau khi gửi xong BLE ClaimKey → tắt BLE
       if (isBLEActive) {
         BLEDevice::deinit();
@@ -266,7 +266,6 @@ bool connectToMQTT() {
     mqttConnected = true;
     // Đăng ký nhận thông tin Shared Attributes khi có thay đổi
     client.subscribe("v1/devices/me/attributes");
-    client.subscribe("v1/devices/me/claim/response");  //đăng ký lắng nghe claim/response topic
     // Gửi yêu cầu lấy giá trị Shared Attributes
     String request = "{\"sharedKeys\":\"lightState,pin_1,pin_2,pin_3\"}";
     client.publish("v1/devices/me/attributes/request/1", request.c_str());
@@ -314,7 +313,7 @@ void onBLEReceive(String jsonData) {
 
 bool provisionDevice() {
   HTTPClient http;
-  String url = "http://192.168.0.136:8080/api/v1/provision";
+  String url = String("http://") + String(mqttServer) + ":8080/api/v1/provision";
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
 
@@ -349,7 +348,7 @@ void requestClaimKey() {
   if (client.connected()) {
     String claimPayload = "{\"durationMs\":60000}";
     client.publish("v1/devices/me/claim", claimPayload.c_str());
-    Serial.println("Sending claim request..." + claimPayload);
+    Serial.println("Sending claim request..." +  claimPayload);
   }
 }
 
@@ -364,7 +363,7 @@ void saveCredentialsToEEPROM() {
 
   EEPROM.commit();
 
-  Serial.println(" \nDữ liệu đã được lưu vào EEPROM:");
+  Serial.println(" Dữ liệu đã được lưu vào EEPROM:");
   Serial.printf("  Save_EEPROM.Log -> SSID: %s\n", wifiSSID);
   Serial.printf("  Save.EEPROM.log -> Password: %s\n", wifiPass);
   Serial.printf("  Save.EEPROM.Log -> MQTT User (Token): %s\n", mqttUser);
@@ -382,7 +381,7 @@ void loadCredentialsFromEEPROM() {
   mqttPort = (EEPROM.read(160) << 8) | EEPROM.read(161);
   EEPROM.readString(192, provisionAccessToken, 64);
 
-  Serial.println(" \nĐang đọc dữ liệu từ EEPROM:");
+  Serial.println(" Đang đọc dữ liệu từ EEPROM:");
   Serial.printf("  Save_EEPROM.Log -> SSID: %s\n", wifiSSID);
   Serial.printf("  Save.EEPROM.log -> Password: %s\n", wifiPass);
   Serial.printf("  Save.EEPROM.Log -> MQTT User (Token): %s\n", mqttUser);
@@ -433,21 +432,14 @@ void callback(char *topic, byte *payload, unsigned int length) {
   for (unsigned int i = 0; i < length; i++) {
     message += (char)payload[i];
   }
-  Serial.print("MQTT.TOPIC: ");
-  Serial.println(topic);
-  Serial.print("MQTT.PAYLOAD: ");
-  Serial.println(message);
-
   if (String(topic).endsWith("/claim/response")) {
     if (isBLEActive && pCharacteristic) {
-      Serial.println("BLE_NOTIFY_LOG -> Sending ClaimKey to mobile via BLE:");
-      Serial.println(message);  // in dữ liệu claimKey
       pCharacteristic->setValue(message.c_str());
-      pCharacteristic->notify();  
+      pCharacteristic->notify();
       isClaimKeySent = true;
+      Serial.println("Claim key sent via BLE: " + message);
     }
   }
-
   DynamicJsonDocument doc(1024);
   DeserializationError error = deserializeJson(doc, message);
   if (!error) {
